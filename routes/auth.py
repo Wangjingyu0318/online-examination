@@ -1,4 +1,8 @@
 from flask import Blueprint, request, jsonify, session
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from db import query_one
 
 # 创建蓝图
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
@@ -26,18 +30,22 @@ def login():
         if not all([name, unit, phone, id_number]):
             return jsonify({'code': 1, 'message': '请完整填写所有字段'})
 
-        # 校验默认考生信息
-        if (name == 'student' and
-            unit == 'company' and
-            phone == '111111' and
-            id_number == '123456'):
+        # 从数据库查考生
+        user = query_one("""
+            SELECT * FROM users 
+            WHERE name = %s AND unit = %s AND phone = %s AND id_number = %s 
+            AND role = 'student' AND status = '正常'
+        """, (name, unit, phone, id_number))
+
+        if user and user['eligible']:
             # 登录成功，保存session
             session['user'] = {
+                'id': user['id'],
                 'role': 'student',
-                'name': name,
-                'unit': unit,
-                'phone': phone,
-                'idNumber': id_number
+                'name': user['name'],
+                'unit': user['unit'],
+                'phone': user['phone'],
+                'idNumber': user['id_number']
             }
             return jsonify({'code': 0, 'message': '登录成功', 'data': {'role': 'student'}})
         else:
@@ -53,10 +61,18 @@ def login():
         if not username or not password:
             return jsonify({'code': 1, 'message': '请输入账号和密码'})
 
-        if username == '111111' and password == '123456':
+        # 从数据库查管理员
+        user = query_one("""
+            SELECT * FROM users 
+            WHERE username = %s AND password = %s AND role = 'admin' AND status = '正常'
+        """, (username, password))
+
+        if user:
             session['user'] = {
+                'id': user['id'],
                 'role': 'admin',
-                'username': username
+                'username': user['username'],
+                'name': user['name']
             }
             return jsonify({'code': 0, 'message': '登录成功', 'data': {'role': 'admin'}})
         else:
