@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人员管理 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* 表格无竖线 */
+        .table-noline th,
+        .table-noline td {
+            border-left: none;
+            border-right: none;
+        }
+        .table-noline {
+            border-collapse: collapse;
+        }
+        /* 状态标签 */
+        .status-active {
+            color: var(--success);
+            font-weight: 600;
+        }
+        .status-inactive {
+            color: var(--danger);
+            font-weight: 600;
+        }
+        /* 下拉选项高亮 */
+        .filter-select option:hover {
+            background: var(--primary);
+            color: white;
+        }
+        /* 工具栏同行 */
+        .toolbar-with-count {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .toolbar-with-count .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            flex-wrap: wrap;
+        }
+        .toolbar-with-count .total-count {
+            font-size: 13px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        .toolbar-with-count .total-count strong {
+            color: var(--primary);
+            font-size: 15px;
+        }
+        .btn-download {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--line);
+        }
+        .btn-download:hover {
+            background: #e5e9ef;
+        }
+        .btn-import {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-import:hover {
+            background: var(--primary-2);
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .id-card-mask {
+            font-family: monospace;
+            letter-spacing: 1px;
+        }
+        /* 上传弹窗 */
+        .upload-zone.dragover {
+            border-color: var(--primary);
+            background: var(--primary-soft);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ============================================================ -->
+        <!-- 左侧边栏 -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>管理后台</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">管理中心</div>
+                <a href="/admin/dashboard" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>工作台</span>
+                </a>
+                <a href="/admin/exams" class="menu-item">
+                    <span class="menu-icon">📝</span>
+                    <span>考试管理</span>
+                </a>
+                <a href="/admin/questions" class="menu-item">
+                    <span class="menu-icon">📚</span>
+                    <span>题库管理</span>
+                </a>
+                <a href="/admin/users" class="menu-item active">
+                    <span class="menu-icon">👥</span>
+                    <span>人员管理</span>
+                </a>
+                <a href="/admin/scores" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>成绩管理</span>
+                </a>
+                <a href="/admin/settings" class="menu-item">
+                    <span class="menu-icon">⚙️</span>
+                    <span>规则设置</span>
+                </a>
+            </nav>
+
+            <!-- 底部管理员信息 -->
+            <div class="side-user">
+                <div class="avatar">{{ user.username[0] if user else '管' }}</div>
+                <div>
+                    <strong>{{ user.username if user else '管理员' }}</strong>
+                    <small>管理员</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- 右侧主内容 -->
+        <!-- ============================================================ -->
+        <main class="main">
+            <!-- 顶栏 -->
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>人员管理</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.username if user else '管理员' }}</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <!-- 内容 -->
+            <div class="content">
+                <!-- ==================== 页面标题 ==================== -->
+                <div class="page-title">
+                    <div>
+                        <h2>👥 人员管理</h2>
+                        <p style="margin:0;color:var(--muted);font-size:13px;">考生必须由后台提前导入，不开放自行注册</p>
+                    </div>
+                </div>
+
+                <!-- ==================== 工具栏（含搜索 + 单位筛选 + 人数统计 + 按钮） ==================== -->
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-body">
+                        <div class="toolbar-with-count">
+                            <div class="toolbar-group">
+                                <div class="search-box">
+                                    <span>🔍</span>
+                                    <input type="text" placeholder="姓名 / 单位 / 联系电话..." id="searchInput" style="width:220px;">
+                                </div>
+                                <select class="filter-select" id="unitFilter">
+                                    <option value="">全部单位</option>
+                                    <!-- 由JS动态填充 -->
+                                </select>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <span class="total-count">共 <strong id="totalCount">50</strong> 人</span>
+                                <button class="btn btn-download btn-sm" id="downloadBtn">📄 下载人员模板</button>
+                                <button class="btn btn-import btn-sm" id="importBtn">📤 导入人员</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 人员表格 ==================== -->
+                <div class="card">
+                    <div class="card-head">
+                        <h3>人员列表</h3>
+                    </div>
+                    <div class="card-body" style="padding:0;">
+                        <div class="table-wrap">
+                            <table class="table-noline" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:12%;">姓名</th>
+                                        <th style="width:18%;">单位</th>
+                                        <th style="width:14%;">联系电话</th>
+                                        <th style="width:18%;">身份证号</th>
+                                        <th style="width:10%;">身份状态</th>
+                                        <th style="width:10%;">考试资格</th>
+                                        <th style="width:13%;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="userTableBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align:center;color:var(--muted);padding:30px 0;">
+                                            ⏳ 加载中...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 导入人员模态框 -->
+    <!-- ============================================================ -->
+    <div class="modal-mask hidden" id="importModal">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-head">
+                <h3>📤 导入人员</h3>
+                <button class="modal-close" id="importModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-zone" id="importZone">
+                    <div class="upload-icon">👥</div>
+                    <h3>点击选择人员名单文件</h3>
+                    <p>支持 .csv 格式，文件编码为 UTF-8</p>
+                    <input type="file" id="userFileInput" accept=".csv" style="display:none;">
+                    <button class="btn btn-primary" id="selectUserFileBtn">选择文件</button>
+                    <span id="userFileName" style="margin-left:12px;font-size:13px;color:var(--muted);"></span>
+                </div>
+                <div id="userPreviewContainer" class="hidden" style="margin-top:16px;">
+                    <div style="background:var(--bg);padding:12px 16px;border-radius:8px;margin-bottom:12px;">
+                        <span style="font-size:13px;color:var(--muted);">解析到 <strong id="previewUserCount">0</strong> 条人员记录</span>
+                    </div>
+                    <div class="preview-table-wrap" style="max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:6px;">
+                        <table style="width:100%;font-size:12px;">
+                            <thead id="userPreviewHeader" style="background:var(--bg);"></thead>
+                            <tbody id="userPreviewBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-light" id="importModalCancel">取消</button>
+                <button class="btn btn-success hidden" id="confirmImportUsersBtn">✅ 确认导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // ============================================================
+    // 页面加载
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUsers();
+        loadUnitFilter();
+
+        // 搜索事件
+        document.getElementById('searchInput').addEventListener('input', loadUsers);
+        document.getElementById('unitFilter').addEventListener('change', loadUsers);
+
+        // 导入按钮
+        document.getElementById('importBtn').addEventListener('click', openImportModal);
+        document.getElementById('importModalClose').addEventListener('click', closeImportModal);
+        document.getElementById('importModalCancel').addEventListener('click', closeImportModal);
+        document.getElementById('selectUserFileBtn').addEventListener('click', function() {
+            document.getElementById('userFileInput').click();
+        });
+        document.getElementById('userFileInput').addEventListener('change', handleUserFileSelect);
+        document.getElementById('confirmImportUsersBtn').addEventListener('click', confirmImportUsers);
+
+        // 下载模板
+        document.getElementById('downloadBtn').addEventListener('click', downloadTemplate);
+
+        // 点击遮罩关闭
+        document.querySelectorAll('.modal-mask').forEach(function(mask) {
+            mask.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                }
+            });
+        });
+    });
+
+    // ============================================================
+    // 加载单位下拉筛选
+    // ============================================================
+    function loadUnitFilter() {
+        fetch('/api/admin/users')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.code === 0) {
+                    var users = data.data || [];
+                    var units = [];
+                    users.forEach(function(u) {
+                        if (u.unit && units.indexOf(u.unit) === -1) {
+                            units.push(u.unit);
+                        }
+                    });
+                    var select = document.getElementById('unitFilter');
+                    // 保留第一个"全部单位"选项
+                    var currentValue = select.value;
+                    select.innerHTML = '<option value="">全部单位</option>';
+                    units.forEach(function(u) {
+                        var opt = document.createElement('option');
+                        opt.value = u;
+                        opt.textContent = u;
+                        if (u === currentValue) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                }
+            })
+            .catch(function(err) { console.error('加载单位列表失败:', err); });
+    }
+
+    // ============================================================
+    // 加载人员列表
+    // ============================================================
+    function loadUsers() {
+        var keyword = document.getElementById('searchInput').value.trim();
+        var unit = document.getElementById('unitFilter').value;
+
+        var url = '/api/admin/users?';
+        if (keyword) url += 'keyword=' + encodeURIComponent(keyword) + '&';
+        if (unit) url += 'unit=' + encodeURIComponent(unit) + '&';
+
+        fetch(url)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var tbody = document.getElementById('userTableBody');
+                if (data.code === 0 && data.data.length > 0) {
+                    var html = '';
+                    data.data.forEach(function(u) {
+                        // 身份状态
+                        var statusText = u.status || '正常';
+                        var statusClass = statusText === '正常' ? 'status-active' : 'status-inactive';
+                        // 考试资格
+                        var eligibleText = u.eligible !== false ? '✅ 允许' : '❌ 禁止';
+                        var eligibleClass = u.eligible !== false ? 'status-active' : 'status-inactive';
+                        // 身份证脱敏
+                        var idCard = u.idNumber || '';
+                        var idDisplay = idCard.length >= 18 ? idCard.substring(0, 6) + '********' + idCard.substring(14) : idCard;
+
+                        html += '<tr>';
+                        html += '<td><strong>' + (u.name || '-') + '</strong></td>';
+                        html += '<td>' + (u.unit || '-') + '</td>';
+                        html += '<td>' + (u.phone || '-') + '</td>';
+                        html += '<td class="id-card-mask">' + idDisplay + '</td>';
+                        html += '<td><span class="' + statusClass + '">' + statusText + '</span></td>';
+                        html += '<td><span class="' + eligibleClass + '">' + eligibleText + '</span></td>';
+                        html += '<td>';
+                        html += '<button class="btn btn-light btn-sm" onclick="editUser(\'' + u.id + '\')">✏️ 编辑</button> ';
+                        html += '<button class="btn btn-danger btn-sm" onclick="deleteUser(\'' + u.id + '\')">🗑️</button>';
+                        html += '</td>';
+                        html += '</tr>';
+                    });
+                    tbody.innerHTML = html;
+                    document.getElementById('totalCount').textContent = data.data.length;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px 0;">📭 暂无人员数据</td></tr>';
+                    document.getElementById('totalCount').textContent = '0';
+                }
+            })
+            .catch(function(err) {
+                console.error('加载人员失败:', err);
+                document.getElementById('userTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:30px 0;">❌ 加载失败</td></tr>';
+            });
+    }
+
+    // ============================================================
+    // 编辑人员（占位功能）
+    // ============================================================
+    function editUser(userId) {
+        showToast('✏️ 编辑功能开发中');
+    }
+
+    // ============================================================
+    // 删除人员（占位功能）
+    // ============================================================
+    function deleteUser(userId) {
+        if (!confirm('确认删除该人员吗？')) return;
+        showToast('🗑️ 删除功能开发中');
+    }
+
+    // ============================================================
+    // 导入相关
+    // ============================================================
+    var uploadedUserData = null;
+
+    function openImportModal() {
+        document.getElementById('importModal').classList.remove('hidden');
+        document.getElementById('userPreviewContainer').classList.add('hidden');
+        document.getElementById('confirmImportUsersBtn').classList.add('hidden');
+        document.getElementById('userFileName').textContent = '';
+        document.getElementById('userFileInput').value = '';
+        uploadedUserData = null;
+    }
+
+    function closeImportModal() {
+        document.getElementById('importModal').classList.add('hidden');
+    }
+
+    function handleUserFileSelect(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('userFileName').textContent = '📎 ' + file.name;
+
+        var formData = new FormData();
+        formData.append('file', file);
+
+        showToast('⏳ 正在解析...');
+
+        fetch('/api/admin/users/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.code === 0) {
+                uploadedUserData = data.data;
+                showUserPreview(data.data);
+                document.getElementById('confirmImportUsersBtn').classList.remove('hidden');
+            } else {
+                showToast('❌ ' + data.message);
+            }
+        })
+        .catch(function(err) {
+            showToast('❌ 上传失败');
+        });
+    }
+
+    function showUserPreview(data) {
+        var container = document.getElementById('userPreviewContainer');
+        container.classList.remove('hidden');
+
+        document.getElementById('previewUserCount').textContent = data.total || 0;
+
+        // 表头
+        var headers = data.headers || [];
+        var headerHtml = '<tr>';
+        headers.forEach(function(h) {
+            headerHtml += '<th style="padding:6px 10px;text-align:left;">' + h + '</th>';
+        });
+        headerHtml += '</tr>';
+        document.getElementById('userPreviewHeader').innerHTML = headerHtml;
+
+        // 数据行
+        var rows = data.rows || [];
+        var bodyHtml = '';
+        rows.forEach(function(row) {
+            bodyHtml += '<tr>';
+            headers.forEach(function(h) {
+                bodyHtml += '<td style="padding:4px 10px;">' + (row[h] || '') + '</td>';
+            });
+            bodyHtml += '</tr>';
+        });
+        document.getElementById('userPreviewBody').innerHTML = bodyHtml;
+    }
+
+    function confirmImportUsers() {
+        if (!uploadedUserData) return;
+
+        if (!confirm('确认导入 ' + (uploadedUserData.total || 0) + ' 名人员吗？')) return;
+
+        fetch('/api/admin/users/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ users: uploadedUserData.users })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.code === 0) {
+                showToast('✅ 导入成功！共导入 ' + data.data.count + ' 人');
+                closeImportModal();
+                loadUsers();
+                loadUnitFilter();
+            } else {
+                showToast('❌ ' + data.message);
+            }
+        })
+        .catch(function(err) {
+            showToast('❌ 导入失败');
+        });
+    }
+
+    // ============================================================
+    // 下载人员模板
+    // ============================================================
+    function downloadTemplate() {
+        var content = '姓名,单位,联系电话,身份证号\n张三,某省广播电视技术中心,13800138000,110101199001011234\n李四,某市广播电视台,13900139000,110101199002021345\n';
+        var blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = '人员导入模板.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        showToast('✅ 模板已下载');
+    }
+
+    // ============================================================
+    // Toast提示
+    // ============================================================
+    function showToast(msg) {
+        var toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(function() {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+    </script>
+
+</body>
+</html>

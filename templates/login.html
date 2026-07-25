@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIProbe — 在线考试与练习系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="login-page">
+        <div class="login-brand">
+            <div class="brand-mark">📡</div>
+            <h1>AIProbe<br>在线考试与练习系统</h1>
+            <p>面向单位内部业务考核、技能考试与日常学习，提供人员统一导入、固定试卷随机排序、自动评分、后台成绩管理和练习测评等功能。</p>
+            <div class="brand-points">
+                <div class="brand-point">
+                    <strong>📋 人员后台统一导入</strong>
+                    <span>姓名、单位、联系电话、完整身份证号</span>
+                </div>
+                <div class="brand-point">
+                    <strong>🔀 题目和选项顺序可随机排列</strong>
+                    <span>同场考试统一题目</span>
+                </div>
+                <div class="brand-point">
+                    <strong>📊 正式成绩后台可见</strong>
+                    <span>考生交卷后不展示成绩和答案</span>
+                </div>
+                <div class="brand-point">
+                    <strong>📤 题库CSV批量上传</strong>
+                    <span>支持填空、单选、多选和判断题</span>
+                </div>
+            </div>
+        </div>
+        <div class="login-panel">
+            <div class="login-card">
+                <h2>系统登录</h2>
+                <p style="color: var(--muted); font-size: 13px; margin: 0 0 8px;">请选择身份进入原型演示</p>
+                <div class="role-tabs">
+                    <button class="role-tab active" data-role="student">🧑‍🎓 考生登录</button>
+                    <button class="role-tab" data-role="admin">⚙️ 管理后台</button>
+                </div>
+                <form id="loginForm">
+                    <!-- ========== 考生登录字段 ========== -->
+                    <div id="studentFields">
+                        <div class="field">
+                            <label class="required">姓名</label>
+                            <input type="text" id="fullName" value="student" placeholder="请输入姓名">
+                        </div>
+                        <div class="field">
+                            <label class="required">单位</label>
+                            <input type="text" id="unit" value="company" placeholder="请输入单位名称">
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label class="required">联系电话</label>
+                                <input type="text" id="phone" value="111111" placeholder="请输入手机号">
+                            </div>
+                            <div class="field">
+                                <label class="required">身份证号</label>
+                                <input type="text" id="idNumber" value="123456" placeholder="请输入身份证号">
+                            </div>
+                        </div>
+                        <div class="login-tip">
+                            ⚠️ 考生信息须与后台预先导入的人员名单一致。身份证号仅用于身份核验，页面默认脱敏显示。
+                        </div>
+                    </div>
+
+                    <!-- ========== 管理员登录字段 ========== -->
+                    <div id="adminFields" class="hidden">
+                        <div class="field">
+                            <label class="required">管理员账号</label>
+                            <input type="text" id="adminUsername" value="111111" placeholder="请输入管理员账号">
+                        </div>
+                        <div class="field">
+                            <label class="required">登录密码</label>
+                            <input type="password" id="adminPassword" value="123456" placeholder="请输入密码">
+                        </div>
+                        <div class="login-tip">
+                            ⚠️ 原型演示账号已预填。正式开发应启用强密码、失败锁定和操作日志。
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" id="loginBtn" style="margin-top: 18px;">
+                        身份核验并登录 →
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

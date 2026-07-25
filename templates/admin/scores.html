@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成绩管理 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .table-noline th,
+        .table-noline td {
+            border-left: none;
+            border-right: none;
+        }
+        .table-noline {
+            border-collapse: collapse;
+        }
+        .status-locked {
+            color: var(--success);
+            font-weight: 600;
+        }
+        .status-unlocked {
+            color: var(--danger);
+            font-weight: 600;
+        }
+        .warning-box {
+            background: #fff8e1;
+            border: 1px solid #ffecb3;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 12px 0 16px 0;
+            font-size: 13px;
+            color: var(--danger);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .warning-box .icon {
+            font-size: 18px;
+        }
+        .btn-export {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--line);
+        }
+        .btn-export:hover {
+            background: #e5e9ef;
+        }
+        .btn-lock-all {
+            background: var(--warning);
+            color: white;
+            border: none;
+        }
+        .btn-lock-all:hover {
+            background: #9e5e00;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .score-summary {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .score-summary-item {
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .score-summary-item strong {
+            color: var(--text);
+            font-size: 18px;
+        }
+        .score-summary-item .highlight {
+            color: var(--primary);
+        }
+        .exam-status-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .exam-status-badge.locked {
+            background: #e8f5e9;
+            color: var(--success);
+        }
+        .exam-status-badge.unlocked {
+            background: #ffebee;
+            color: var(--danger);
+        }
+        .toolbar-with-count {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .toolbar-with-count .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            flex-wrap: wrap;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ============================================================ -->
+        <!-- 左侧边栏 -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>管理后台</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">管理中心</div>
+                <a href="/admin/dashboard" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>工作台</span>
+                </a>
+                <a href="/admin/exams" class="menu-item">
+                    <span class="menu-icon">📝</span>
+                    <span>考试管理</span>
+                </a>
+                <a href="/admin/questions" class="menu-item">
+                    <span class="menu-icon">📚</span>
+                    <span>题库管理</span>
+                </a>
+                <a href="/admin/users" class="menu-item">
+                    <span class="menu-icon">👥</span>
+                    <span>人员管理</span>
+                </a>
+                <a href="/admin/scores" class="menu-item active">
+                    <span class="menu-icon">📊</span>
+                    <span>成绩管理</span>
+                </a>
+                <a href="/admin/settings" class="menu-item">
+                    <span class="menu-icon">⚙️</span>
+                    <span>规则设置</span>
+                </a>
+            </nav>
+
+            <!-- 底部管理员信息 -->
+            <div class="side-user">
+                <div class="avatar">{{ user.username[0] if user else '管' }}</div>
+                <div>
+                    <strong>{{ user.username if user else '管理员' }}</strong>
+                    <small>管理员</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- 右侧主内容 -->
+        <!-- ============================================================ -->
+        <main class="main">
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>成绩管理</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.username if user else '管理员' }}</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <div class="content">
+
+                <!-- ==================== 页面标题 ==================== -->
+                <div class="page-title">
+                    <div>
+                        <h2>📊 成绩管理</h2>
+                        <p style="margin:0;color:var(--muted);font-size:13px;">正式考试成绩仅在后台显示；锁定前考生可以重新提交</p>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn btn-export btn-sm" onclick="showToast('📥 导出成绩功能开发中')">📥 导出成绩</button>
+                        <button class="btn btn-lock-all btn-sm" onclick="if(confirm('确认锁定全部成绩吗？锁定后考生将无法再次提交。'))showToast('🔒 全部成绩已锁定')">🔒 锁定全部成绩</button>
+                    </div>
+                </div>
+
+                <!-- ==================== 未锁定警告 ==================== -->
+                <div class="warning-box" id="lockWarning">
+                    <span class="icon">⚠️</span>
+                    当前成绩尚未锁定。考生在考试开放时间内仍可重新参加，系统以最后一次有效提交为准。
+                </div>
+
+                <!-- ==================== 考试概览 ==================== -->
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-body">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                            <div>
+                                <h3 style="margin:0 0 4px 0;font-size:16px;">📝 人工智能专业基础考核</h3>
+                                <div class="score-summary">
+                                    <span class="score-summary-item">已提交 <strong>36</strong> 人</span>
+                                    <span class="score-summary-item">未提交 <strong>14</strong> 人</span>
+                                    <span class="score-summary-item">平均分 <strong class="highlight">82.6</strong> 分</span>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="exam-status-badge unlocked" id="lockStatusBadge">🔓 待锁定</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 成绩表格 ==================== -->
+                <div class="card">
+                    <div class="card-head">
+                        <h3>成绩明细</h3>
+                        <span style="font-size:13px;color:var(--muted);" id="scoreCount">共 50 人</span>
+                    </div>
+                    <div class="card-body" style="padding:0;">
+                        <div class="table-wrap">
+                            <table class="table-noline" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%;">考生</th>
+                                        <th style="width:12%;">单位</th>
+                                        <th style="width:8%;">提交次数</th>
+                                        <th style="width:12%;">最后提交</th>
+                                        <th style="width:8%;">填空题</th>
+                                        <th style="width:8%;">单选题</th>
+                                        <th style="width:8%;">多选题</th>
+                                        <th style="width:8%;">判断题</th>
+                                        <th style="width:8%;">总分</th>
+                                        <th style="width:10%;">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scoreTableBody">
+                                    <!-- 由 JS 动态渲染 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================================
+        // 页面加载
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            loadScores();
+        });
+
+        // ============================================================
+        // 加载成绩数据
+        // ============================================================
+        function loadScores() {
+            // 模拟数据
+            var mockData = [
+                { name: '张明', unit: '某省广播电视技术中心', submitCount: 2, lastSubmit: '2026-07-22 14:30', fillScore: 12, singleScore: 18, multiScore: 15, judgeScore: 8, total: 53, status: '未锁定' },
+                { name: '李华', unit: '某市广播电视台', submitCount: 1, lastSubmit: '2026-07-21 09:15', fillScore: 14, singleScore: 20, multiScore: 18, judgeScore: 9, total: 61, status: '未锁定' },
+                { name: '王芳', unit: '某省广播电视监测中心', submitCount: 3, lastSubmit: '2026-07-22 16:45', fillScore: 16, singleScore: 22, multiScore: 21, judgeScore: 10, total: 69, status: '未锁定' },
+                { name: '赵强', unit: '某市融媒体中心', submitCount: 1, lastSubmit: '2026-07-20 11:20', fillScore: 18, singleScore: 24, multiScore: 24, judgeScore: 10, total: 76, status: '未锁定' },
+                { name: '陈静', unit: '某省广播电视技术中心', submitCount: 2, lastSubmit: '2026-07-22 10:00', fillScore: 20, singleScore: 26, multiScore: 27, judgeScore: 10, total: 83, status: '未锁定' },
+                { name: '刘洋', unit: '某市广播电视台', submitCount: 1, lastSubmit: '2026-07-21 13:40', fillScore: 22, singleScore: 28, multiScore: 30, judgeScore: 10, total: 90, status: '未锁定' },
+                { name: '孙丽', unit: '某省广播电视监测中心', submitCount: 2, lastSubmit: '2026-07-22 08:50', fillScore: 24, singleScore: 30, multiScore: 30, judgeScore: 10, total: 94, status: '未锁定' },
+                { name: '周明', unit: '某市融媒体中心', submitCount: 1, lastSubmit: '2026-07-19 15:10', fillScore: 16, singleScore: 20, multiScore: 18, judgeScore: 8, total: 62, status: '未锁定' },
+                { name: '吴雪', unit: '某省广播电视技术中心', submitCount: 3, lastSubmit: '2026-07-22 17:20', fillScore: 14, singleScore: 18, multiScore: 15, judgeScore: 8, total: 55, status: '未锁定' },
+                { name: '郑凯', unit: '某市广播电视台', submitCount: 1, lastSubmit: '2026-07-20 14:00', fillScore: 20, singleScore: 24, multiScore: 21, judgeScore: 10, total: 75, status: '未锁定' }
+            ];
+
+            var tbody = document.getElementById('scoreTableBody');
+            var html = '';
+            mockData.forEach(function(item) {
+                var statusClass = item.status === '锁定' ? 'status-locked' : 'status-unlocked';
+                html += '<tr>';
+                html += '<td><strong>' + item.name + '</strong></td>';
+                html += '<td>' + item.unit + '</td>';
+                html += '<td>' + item.submitCount + '次</td>';
+                html += '<td>' + item.lastSubmit + '</td>';
+                html += '<td>' + item.fillScore + '</td>';
+                html += '<td>' + item.singleScore + '</td>';
+                html += '<td>' + item.multiScore + '</td>';
+                html += '<td>' + item.judgeScore + '</td>';
+                html += '<td><strong>' + item.total + '</strong></td>';
+                html += '<td><span class="' + statusClass + '">' + item.status + '</span></td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+            document.getElementById('scoreCount').textContent = '共 ' + mockData.length + ' 人';
+        }
+
+        // ============================================================
+        // Toast提示
+        // ============================================================
+        function showToast(msg) {
+            var toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(function() {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人信息确认 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .table-noline th,
+        .table-noline td {
+            border-left: none;
+            border-right: none;
+        }
+        .table-noline {
+            border-collapse: collapse;
+        }
+        .verify-badge {
+            color: var(--danger);
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .info-tip {
+            color: var(--primary);
+            font-size: 13px;
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: var(--primary-soft);
+            border-radius: 8px;
+            line-height: 1.7;
+        }
+        .id-mask {
+            font-family: monospace;
+            letter-spacing: 1px;
+        }
+        .profile-field {
+            padding: 6px 0;
+        }
+        .profile-field .label {
+            color: var(--muted);
+            font-size: 12px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .profile-field .value {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .card-head .right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ============================================================ -->
+        <!-- 左侧边栏 -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>在线考试与练习</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">考生服务</div>
+                <a href="/student/dashboard" class="menu-item">
+                    <span class="menu-icon">🏠</span>
+                    <span>首页</span>
+                </a>
+                <a href="/student/exam" class="menu-item">
+                    <span class="menu-icon">📋</span>
+                    <span>我的考试</span>
+                </a>
+                <a href="/student/practice" class="menu-item">
+                    <span class="menu-icon">✏️</span>
+                    <span>在线练习</span>
+                </a>
+                <a href="/student/records" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>练习记录</span>
+                </a>
+
+                <div class="menu-title" style="margin-top: 28px;">个人信息</div>
+                <a href="/student/profile" class="menu-item active">
+                    <span class="menu-icon">👤</span>
+                    <span>信息确认</span>
+                </a>
+            </nav>
+
+            <!-- 底部用户信息 -->
+            <div class="side-user">
+                <div class="avatar">{{ user.name[0] if user else '考' }}</div>
+                <div>
+                    <strong>{{ user.name if user else '考生' }}</strong>
+                    <small>考生</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- 右侧主内容 -->
+        <!-- ============================================================ -->
+        <main class="main">
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>个人信息确认</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.name if user else '考生' }} 同学</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <div class="content">
+
+                <!-- ==================== 页面标题 ==================== -->
+                <div class="page-title">
+                    <div>
+                        <h2>👤 个人信息确认</h2>
+                        <p style="margin:0;color:var(--muted);font-size:13px;">信息来自后台导入名单，考生不能自行修改关键身份字段</p>
+                    </div>
+                </div>
+
+                <!-- ==================== 基础信息 ==================== -->
+                <div class="card">
+                    <div class="card-head">
+                        <h3>基础信息</h3>
+                        <div class="right">
+                            <span class="verify-badge">✅ 身份核验通过</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 40px;max-width:700px;">
+                            <div class="profile-field">
+                                <span class="label">姓名</span>
+                                <span class="value">{{ user.name if user else '考生' }}</span>
+                            </div>
+                            <div class="profile-field">
+                                <span class="label">单位</span>
+                                <span class="value">{{ user.unit if user else '未设置' }}</span>
+                            </div>
+                            <div class="profile-field">
+                                <span class="label">联系电话</span>
+                                <span class="value id-mask">{{ user.phone[:3] + '****' + user.phone[7:] if user and user.phone else '未设置' }}</span>
+                            </div>
+                            <div class="profile-field">
+                                <span class="label">身份证号</span>
+                                <span class="value id-mask">{{ user.idNumber[:6] + '********' + user.idNumber[14:] if user and user.idNumber else '未设置' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="info-tip">
+                            ℹ️ 如人员信息有误，请联系考试管理员在后台修改。完整身份证号默认加密存储、脱敏展示。
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================================
+        // Toast提示
+        // ============================================================
+        function showToast(msg) {
+            var toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(function() {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提交成功 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .result-card {
+            text-align: center;
+            padding: 60px 40px;
+            max-width: 500px;
+            margin: 40px auto;
+        }
+        .result-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+        }
+        .result-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--success);
+        }
+        .result-desc {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.8;
+            margin-bottom: 32px;
+        }
+        .result-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- 左侧边栏 -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>在线考试与练习</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">考生服务</div>
+                <a href="/student/dashboard" class="menu-item">
+                    <span class="menu-icon">🏠</span>
+                    <span>首页</span>
+                </a>
+                <a href="/student/exam" class="menu-item">
+                    <span class="menu-icon">📋</span>
+                    <span>我的考试</span>
+                </a>
+                <a href="/student/practice" class="menu-item">
+                    <span class="menu-icon">✏️</span>
+                    <span>在线练习</span>
+                </a>
+                <a href="/student/records" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>练习记录</span>
+                </a>
+
+                <div class="menu-title" style="margin-top: 28px;">个人信息</div>
+                <a href="/student/profile" class="menu-item">
+                    <span class="menu-icon">👤</span>
+                    <span>信息确认</span>
+                </a>
+            </nav>
+
+            <div class="side-user">
+                <div class="avatar">{{ user.name[0] if user else '考' }}</div>
+                <div>
+                    <strong>{{ user.name if user else '考生' }}</strong>
+                    <small>考生</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 右侧主内容 -->
+        <main class="main">
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>提交结果</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.name if user else '考生' }} 同学</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <div class="content">
+                <div class="card result-card">
+                    <div class="result-icon">✅</div>
+                    <div class="result-title">提交成功</div>
+                    <div class="result-desc">
+                        你的答卷已成功提交。<br>
+                        正式考试成绩由管理员在后台统一管理，<br>
+                        练习成绩可在「练习记录」中查看。
+                    </div>
+                    <div class="result-actions">
+                        <button class="btn btn-light" onclick="window.location.href='/student/dashboard'">返回首页</button>
+                        <button class="btn btn-primary" onclick="window.location.href='/student/records'">查看练习记录</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>

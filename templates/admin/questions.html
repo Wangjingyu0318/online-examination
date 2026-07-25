@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>题库管理 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* 表格无竖线 */
+        .table-noline th,
+        .table-noline td {
+            border-left: none;
+            border-right: none;
+        }
+        .table-noline {
+            border-collapse: collapse;
+        }
+        /* 题干截断 */
+        .stem-cell {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+        /* 状态红色高亮 */
+        .status-disabled {
+            color: var(--danger);
+            font-weight: 600;
+        }
+        .status-enabled {
+            color: var(--success);
+            font-weight: 600;
+        }
+        /* 模态框内表单样式 */
+        .modal-form .field textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        .modal-form .field-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 14px;
+        }
+        .modal-form .field-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        /* 上传弹窗预览表格 */
+        .preview-table-wrap {
+            max-height: 300px;
+            overflow: auto;
+        }
+        .preview-table-wrap table {
+            font-size: 12px;
+        }
+        .preview-table-wrap th,
+        .preview-table-wrap td {
+            padding: 6px 10px;
+            white-space: nowrap;
+        }
+        .preview-stats {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .preview-stats div {
+            background: var(--bg);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .preview-stats strong {
+            display: block;
+            font-size: 20px;
+            color: var(--primary);
+        }
+        .preview-stats span {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ============================================================ -->
+        <!-- 左侧边栏 -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>管理后台</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">管理中心</div>
+                <a href="/admin/dashboard" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>工作台</span>
+                </a>
+                <a href="/admin/exams" class="menu-item">
+                    <span class="menu-icon">📝</span>
+                    <span>考试管理</span>
+                </a>
+                <a href="/admin/questions" class="menu-item active">
+                    <span class="menu-icon">📚</span>
+                    <span>题库管理</span>
+                </a>
+                <a href="/admin/users" class="menu-item">
+                    <span class="menu-icon">👥</span>
+                    <span>人员管理</span>
+                </a>
+                <a href="/admin/scores" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>成绩管理</span>
+                </a>
+                <a href="/admin/settings" class="menu-item">
+                    <span class="menu-icon">⚙️</span>
+                    <span>规则设置</span>
+                </a>
+            </nav>
+
+            <!-- 底部管理员信息 -->
+            <div class="side-user">
+                <div class="avatar">{{ user.username[0] if user else '管' }}</div>
+                <div>
+                    <strong>{{ user.username if user else '管理员' }}</strong>
+                    <small>管理员</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- 右侧主内容 -->
+        <!-- ============================================================ -->
+        <main class="main">
+            <!-- 顶栏 -->
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>题库管理</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.username if user else '管理员' }}</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <!-- 内容 -->
+            <div class="content">
+                <!-- ==================== 页面标题 ==================== -->
+                <div class="page-title">
+                    <div>
+                        <h2>📚 题库管理</h2>
+                        <p style="margin:0;color:var(--muted);font-size:13px;">支持后台新增和CSV批量上传题目</p>
+                    </div>
+                    <button class="btn btn-primary" id="uploadBtn">
+                        📤 上传题目
+                    </button>
+                </div>
+
+                <!-- ==================== 统计卡片 ==================== -->
+                <div class="stats" id="statsContainer">
+                    <div class="grid-5" style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;">
+                        <div class="card stat-card">
+                            <div><div class="stat-label">📚 题库总量</div><div class="stat-number" id="statTotal">0</div></div>
+                            <div class="stat-icon">📖</div>
+                        </div>
+                        <div class="card stat-card">
+                            <div><div class="stat-label">📝 填空题</div><div class="stat-number" id="statFill">0</div></div>
+                            <div class="stat-icon">✏️</div>
+                        </div>
+                        <div class="card stat-card">
+                            <div><div class="stat-label">🔘 单选题</div><div class="stat-number" id="statSingle">0</div></div>
+                            <div class="stat-icon">⭕</div>
+                        </div>
+                        <div class="card stat-card">
+                            <div><div class="stat-label">☑️ 多选题</div><div class="stat-number" id="statMulti">0</div></div>
+                            <div class="stat-icon">✅</div>
+                        </div>
+                        <div class="card stat-card">
+                            <div><div class="stat-label">⚖️ 判断题</div><div class="stat-number" id="statJudge">0</div></div>
+                            <div class="stat-icon">✔️</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 工具栏 ==================== -->
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <div class="toolbar-group">
+                                <div class="search-box">
+                                    <span>🔍</span>
+                                    <input type="text" placeholder="搜索题目编号 / 题干..." id="searchInput">
+                                </div>
+                                <select class="filter-select" id="typeFilter">
+                                    <option value="">全部题型</option>
+                                    <option value="填空题">填空题</option>
+                                    <option value="单选题">单选题</option>
+                                    <option value="多选题">多选题</option>
+                                    <option value="判断题">判断题</option>
+                                </select>
+                                <select class="filter-select" id="statusFilter">
+                                    <option value="">全部状态</option>
+                                    <option value="启用">启用</option>
+                                    <option value="未启用">未启用</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-light" id="resetBtn">重置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 题目列表表格 ==================== -->
+                <div class="card">
+                    <div class="card-head">
+                        <h3>题目列表</h3>
+                        <span style="font-size:13px;color:var(--muted);" id="questionCount">共 0 道题</span>
+                    </div>
+                    <div class="card-body" style="padding:0;">
+                        <div class="table-wrap">
+                            <table class="table-noline" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%;">题目编号</th>
+                                        <th style="width:8%;">题型</th>
+                                        <th style="width:22%;">题干</th>
+                                        <th style="width:15%;">知识点</th>
+                                        <th style="width:6%;">分值</th>
+                                        <th style="width:12%;">用途</th>
+                                        <th style="width:10%;">状态</th>
+                                        <th style="width:12%;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="questionTableBody">
+                                    <tr>
+                                        <td colspan="8" style="text-align:center;color:var(--muted);padding:30px 0;">
+                                            ⏳ 加载中...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 编辑模态框 -->
+    <!-- ============================================================ -->
+    <div class="modal-mask hidden" id="editModal">
+        <div class="modal" style="max-width:760px;">
+            <div class="modal-head">
+                <h3 id="editModalTitle">✏️ 编辑题目</h3>
+                <button class="modal-close" id="editModalClose">&times;</button>
+            </div>
+            <div class="modal-body modal-form">
+                <form id="editForm">
+                    <input type="hidden" id="editQuestionId">
+                    <div class="field-row-2">
+                        <div class="field">
+                            <label>题目编号</label>
+                            <input type="text" id="editQid" readonly style="background:#f5f7fa;">
+                        </div>
+                        <div class="field">
+                            <label>题型</label>
+                            <select id="editType">
+                                <option value="填空题">填空题</option>
+                                <option value="单选题">单选题</option>
+                                <option value="多选题">多选题</option>
+                                <option value="判断题">判断题</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>题干</label>
+                        <textarea id="editStem" rows="2"></textarea>
+                    </div>
+                    <div class="field-row-2" id="editOptionsContainer">
+                        <div class="field">
+                            <label>选项A</label>
+                            <input type="text" id="editOptionA">
+                        </div>
+                        <div class="field">
+                            <label>选项B</label>
+                            <input type="text" id="editOptionB">
+                        </div>
+                        <div class="field">
+                            <label>选项C</label>
+                            <input type="text" id="editOptionC">
+                        </div>
+                        <div class="field">
+                            <label>选项D</label>
+                            <input type="text" id="editOptionD">
+                        </div>
+                        <div class="field">
+                            <label>选项E</label>
+                            <input type="text" id="editOptionE">
+                        </div>
+                        <div class="field">
+                            <label>选项F</label>
+                            <input type="text" id="editOptionF">
+                        </div>
+                    </div>
+                    <div class="field-row-2">
+                        <div class="field">
+                            <label>正确答案</label>
+                            <input type="text" id="editAnswer" placeholder="多个答案用 | 分隔">
+                        </div>
+                        <div class="field">
+                            <label>默认分值</label>
+                            <input type="number" id="editScore" step="0.5">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>答案解析</label>
+                        <textarea id="editExplanation" rows="2"></textarea>
+                    </div>
+                    <div class="field-row-3">
+                        <div class="field">
+                            <label>知识点</label>
+                            <input type="text" id="editKnowledge">
+                        </div>
+                        <div class="field">
+                            <label>是否用于考试</label>
+                            <select id="editForExam">
+                                <option value="是">是</option>
+                                <option value="否">否</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>是否用于练习</label>
+                            <select id="editForPractice">
+                                <option value="是">是</option>
+                                <option value="否">否</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field-row-2">
+                        <div class="field">
+                            <label>题目状态</label>
+                            <select id="editStatus">
+                                <option value="启用">启用</option>
+                                <option value="未启用">未启用</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>标签</label>
+                            <input type="text" id="editTags" placeholder="多个标签用逗号分隔">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-light" id="editModalCancel">取消</button>
+                <button class="btn btn-primary" id="editModalSave">💾 保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 上传模态框 -->
+    <!-- ============================================================ -->
+    <div class="modal-mask hidden" id="uploadModal">
+        <div class="modal" style="max-width:860px;">
+            <div class="modal-head">
+                <h3>📤 上传题目（CSV）</h3>
+                <button class="modal-close" id="uploadModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">📄</div>
+                    <h3>点击选择 CSV 文件</h3>
+                    <p>支持 .csv 格式，文件编码为 UTF-8</p>
+                    <input type="file" id="fileInput" accept=".csv" style="display:none;">
+                    <button class="btn btn-primary" id="selectFileBtn">选择文件</button>
+                    <span id="fileName" style="margin-left:12px;font-size:13px;color:var(--muted);"></span>
+                </div>
+                <div id="previewContainer" class="hidden">
+                    <div class="preview-stats" id="previewStats"></div>
+                    <div class="preview-table-wrap">
+                        <table style="width:100%;font-size:12px;">
+                            <thead>
+                                <tr id="previewHeader"></tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                        </table>
+                    </div>
+                    <p style="margin-top:12px;font-size:12px;color:var(--muted);">* 仅显示前20条数据预览</p>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-light" id="uploadModalCancel">取消</button>
+                <button class="btn btn-success hidden" id="confirmImportBtn">✅ 确认导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 简单的toast提示 -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // 页面加载时获取数据
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        loadQuestions();
+
+        // 搜索/筛选事件
+        document.getElementById('searchInput').addEventListener('input', loadQuestions);
+        document.getElementById('typeFilter').addEventListener('change', loadQuestions);
+        document.getElementById('statusFilter').addEventListener('change', loadQuestions);
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('typeFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            loadQuestions();
+        });
+
+        // 上传按钮
+        document.getElementById('uploadBtn').addEventListener('click', openUploadModal);
+        document.getElementById('uploadModalClose').addEventListener('click', closeUploadModal);
+        document.getElementById('uploadModalCancel').addEventListener('click', closeUploadModal);
+        document.getElementById('selectFileBtn').addEventListener('click', function() {
+            document.getElementById('fileInput').click();
+        });
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
+
+        // 编辑模态框
+        document.getElementById('editModalClose').addEventListener('click', closeEditModal);
+        document.getElementById('editModalCancel').addEventListener('click', closeEditModal);
+        document.getElementById('editModalSave').addEventListener('click', saveQuestion);
+        // 点击遮罩关闭
+        document.querySelectorAll('.modal-mask').forEach(function(mask) {
+            mask.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                }
+            });
+        });
+    });
+
+    // ============================================================
+    // 加载统计数据
+    // ============================================================
+    function loadStats() {
+        fetch('/api/admin/questions/stats')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.code === 0) {
+                    document.getElementById('statTotal').textContent = data.data.total;
+                    document.getElementById('statFill').textContent = data.data.fill;
+                    document.getElementById('statSingle').textContent = data.data.single;
+                    document.getElementById('statMulti').textContent = data.data.multi;
+                    document.getElementById('statJudge').textContent = data.data.judge;
+                }
+            })
+            .catch(function(err) { console.error('加载统计失败:', err); });
+    }
+
+    // ============================================================
+    // 加载题目列表
+    // ============================================================
+    function loadQuestions() {
+        var keyword = document.getElementById('searchInput').value.trim();
+        var type = document.getElementById('typeFilter').value;
+        var status = document.getElementById('statusFilter').value;
+
+        var url = '/api/admin/questions?';
+        if (keyword) url += 'keyword=' + encodeURIComponent(keyword) + '&';
+        if (type) url += 'type=' + encodeURIComponent(type) + '&';
+        if (status) url += 'status=' + encodeURIComponent(status) + '&';
+
+        fetch(url)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var tbody = document.getElementById('questionTableBody');
+                if (data.code === 0 && data.data.length > 0) {
+                    var html = '';
+                    data.data.forEach(function(q) {
+                        // 用途
+                        var yongtu = [];
+                        if (q['是否用于考试'] === '是') yongtu.push('考试');
+                        if (q['是否用于练习'] === '是') yongtu.push('练习');
+                        var yongtuText = yongtu.join('+') || '未分配';
+
+                        // 状态
+                        var statusText = q['题目状态'] || '未启用';
+                        var statusClass = statusText === '启用' ? 'status-enabled' : 'status-disabled';
+
+                        // 题干截断
+                        var stem = q['题干'] || '';
+                        var stemDisplay = stem.length > 30 ? stem.substring(0, 30) + '...' : stem;
+
+                        html += '<tr>';
+                        html += '<td><strong>' + (q['题目编号'] || '-') + '</strong></td>';
+                        html += '<td>' + (q['题型'] || '-') + '</td>';
+                        html += '<td><span class="stem-cell" title="' + stem.replace(/"/g, '&quot;') + '">' + stemDisplay + '</span></td>';
+                        html += '<td>' + (q['知识点'] || '-') + '</td>';
+                        html += '<td>' + (q['默认分值'] || '-') + '</td>';
+                        html += '<td>' + yongtuText + '</td>';
+                        html += '<td><span class="' + statusClass + '">' + statusText + '</span></td>';
+                        html += '<td><button class="btn btn-light" style="padding:4px 12px;font-size:12px;" onclick="openEditModal(\'' + q['题目编号'] + '\')">✏️ 编辑</button></td>';
+                        html += '</tr>';
+                    });
+                    tbody.innerHTML = html;
+                    document.getElementById('questionCount').textContent = '共 ' + data.data.length + ' 道题';
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px 0;">📭 暂无题目数据</td></tr>';
+                    document.getElementById('questionCount').textContent = '共 0 道题';
+                }
+            })
+            .catch(function(err) {
+                console.error('加载题目失败:', err);
+                document.getElementById('questionTableBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:30px 0;">❌ 加载失败，请重试</td></tr>';
+            });
+    }
+
+    // ============================================================
+    // 打开编辑模态框
+    // ============================================================
+    function openEditModal(questionId) {
+        // 先从当前列表中找数据
+        var rows = document.querySelectorAll('#questionTableBody tr');
+        var targetData = null;
+        // 通过题目编号查找
+        fetch('/api/admin/questions')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.code === 0) {
+                    var q = data.data.find(function(item) { return item['题目编号'] === questionId; });
+                    if (q) {
+                        fillEditForm(q);
+                        document.getElementById('editModal').classList.remove('hidden');
+                    } else {
+                        showToast('未找到该题目');
+                    }
+                }
+            })
+            .catch(function(err) { showToast('加载题目失败'); });
+    }
+
+    function fillEditForm(q) {
+        document.getElementById('editQuestionId').value = q['题目编号'] || '';
+        document.getElementById('editQid').value = q['题目编号'] || '';
+        document.getElementById('editType').value = q['题型'] || '填空题';
+        document.getElementById('editStem').value = q['题干'] || '';
+        document.getElementById('editOptionA').value = q['选项A'] || '';
+        document.getElementById('editOptionB').value = q['选项B'] || '';
+        document.getElementById('editOptionC').value = q['选项C'] || '';
+        document.getElementById('editOptionD').value = q['选项D'] || '';
+        document.getElementById('editOptionE').value = q['选项E'] || '';
+        document.getElementById('editOptionF').value = q['选项F'] || '';
+        document.getElementById('editAnswer').value = q['正确答案'] || '';
+        document.getElementById('editScore').value = q['默认分值'] || 2;
+        document.getElementById('editExplanation').value = q['答案解析'] || '';
+        document.getElementById('editKnowledge').value = q['知识点'] || '';
+        document.getElementById('editForExam').value = q['是否用于考试'] || '是';
+        document.getElementById('editForPractice').value = q['是否用于练习'] || '是';
+        document.getElementById('editStatus').value = q['题目状态'] || '启用';
+        document.getElementById('editTags').value = q['标签'] || '';
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+
+    // ============================================================
+    // 保存题目编辑
+    // ============================================================
+    function saveQuestion() {
+        var qid = document.getElementById('editQuestionId').value;
+        var data = {
+            '题目编号': qid,
+            '题型': document.getElementById('editType').value,
+            '题干': document.getElementById('editStem').value,
+            '选项A': document.getElementById('editOptionA').value,
+            '选项B': document.getElementById('editOptionB').value,
+            '选项C': document.getElementById('editOptionC').value,
+            '选项D': document.getElementById('editOptionD').value,
+            '选项E': document.getElementById('editOptionE').value,
+            '选项F': document.getElementById('editOptionF').value,
+            '正确答案': document.getElementById('editAnswer').value,
+            '默认分值': parseFloat(document.getElementById('editScore').value) || 2,
+            '答案解析': document.getElementById('editExplanation').value,
+            '知识点': document.getElementById('editKnowledge').value,
+            '是否用于考试': document.getElementById('editForExam').value,
+            '是否用于练习': document.getElementById('editForPractice').value,
+            '题目状态': document.getElementById('editStatus').value,
+            '标签': document.getElementById('editTags').value
+        };
+
+        // 提取数字ID
+        var idNum = parseInt(qid.replace('Q', '')) || 0;
+
+        fetch('/api/admin/question/' + idNum, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(result) {
+            if (result.code === 0) {
+                showToast('✅ 保存成功');
+                closeEditModal();
+                loadStats();
+                loadQuestions();
+            } else {
+                showToast('❌ ' + result.message);
+            }
+        })
+        .catch(function(err) { showToast('❌ 保存失败'); });
+    }
+
+    // ============================================================
+    // 上传相关
+    // ============================================================
+    var uploadedData = null;
+
+    function openUploadModal() {
+        document.getElementById('uploadModal').classList.remove('hidden');
+        document.getElementById('previewContainer').classList.add('hidden');
+        document.getElementById('confirmImportBtn').classList.add('hidden');
+        document.getElementById('fileName').textContent = '';
+        document.getElementById('fileInput').value = '';
+        uploadedData = null;
+    }
+
+    function closeUploadModal() {
+        document.getElementById('uploadModal').classList.add('hidden');
+    }
+
+    function handleFileSelect(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('fileName').textContent = '📎 ' + file.name;
+
+        var formData = new FormData();
+        formData.append('file', file);
+
+        showToast('⏳ 正在解析...');
+
+        fetch('/api/admin/questions/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.code === 0) {
+                uploadedData = data.data;
+                showPreview(data.data);
+                document.getElementById('confirmImportBtn').classList.remove('hidden');
+            } else {
+                showToast('❌ ' + data.message);
+            }
+        })
+        .catch(function(err) {
+            showToast('❌ 上传失败');
+        });
+    }
+
+    function showPreview(data) {
+        var container = document.getElementById('previewContainer');
+        container.classList.remove('hidden');
+
+        // 统计
+        var statsHtml = '';
+        var stats = data.stats || {};
+        statsHtml += '<div><strong>' + (stats.total || 0) + '</strong><span>总题数</span></div>';
+        statsHtml += '<div><strong>' + (stats.fill || 0) + '</strong><span>填空题</span></div>';
+        statsHtml += '<div><strong>' + (stats.single || 0) + '</strong><span>单选题</span></div>';
+        statsHtml += '<div><strong>' + (stats.multi || 0) + '</strong><span>多选题</span></div>';
+        statsHtml += '<div><strong>' + (stats.judge || 0) + '</strong><span>判断题</span></div>';
+        document.getElementById('previewStats').innerHTML = statsHtml;
+
+        // 表头
+        var headers = data.headers || [];
+        var headerHtml = '<tr>';
+        headers.forEach(function(h) {
+            headerHtml += '<th>' + h + '</th>';
+        });
+        headerHtml += '</tr>';
+        document.getElementById('previewHeader').innerHTML = headerHtml;
+
+        // 数据行
+        var rows = data.rows || [];
+        var bodyHtml = '';
+        rows.forEach(function(row) {
+            bodyHtml += '<tr>';
+            headers.forEach(function(h) {
+                bodyHtml += '<td>' + (row[h] || '') + '</td>';
+            });
+            bodyHtml += '</tr>';
+        });
+        document.getElementById('previewBody').innerHTML = bodyHtml;
+    }
+
+    function confirmImport() {
+        if (!uploadedData) return;
+
+        if (!confirm('确认导入 ' + (uploadedData.stats.total || 0) + ' 道题目吗？')) return;
+
+        fetch('/api/admin/questions/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.code === 0) {
+                showToast('✅ 导入成功！共导入 ' + data.data.count + ' 道题');
+                closeUploadModal();
+                loadStats();
+                loadQuestions();
+            } else {
+                showToast('❌ ' + data.message);
+            }
+        })
+        .catch(function(err) {
+            showToast('❌ 导入失败');
+        });
+    }
+
+    // ============================================================
+    // Toast提示
+    // ============================================================
+    function showToast(msg) {
+        var toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(function() {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+    </script>
+</body>
+</html>

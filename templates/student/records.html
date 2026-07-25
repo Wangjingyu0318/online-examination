@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>练习记录 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .table-noline th,
+        .table-noline td {
+            border-left: none;
+            border-right: none;
+        }
+        .table-noline {
+            border-collapse: collapse;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .empty-state .icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 12px;
+        }
+        .score-high {
+            color: var(--success);
+            font-weight: 700;
+        }
+        .score-medium {
+            color: var(--warning);
+            font-weight: 700;
+        }
+        .score-low {
+            color: var(--danger);
+            font-weight: 700;
+        }
+        .record-count {
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .record-count strong {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ============================================================ -->
+        <!-- 左侧边栏 -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>在线考试与练习</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">考生服务</div>
+                <a href="/student/dashboard" class="menu-item">
+                    <span class="menu-icon">🏠</span>
+                    <span>首页</span>
+                </a>
+                <a href="/student/exam" class="menu-item">
+                    <span class="menu-icon">📋</span>
+                    <span>我的考试</span>
+                </a>
+                <a href="/student/practice" class="menu-item">
+                    <span class="menu-icon">✏️</span>
+                    <span>在线练习</span>
+                </a>
+                <a href="/student/records" class="menu-item active">
+                    <span class="menu-icon">📊</span>
+                    <span>练习记录</span>
+                </a>
+
+                <div class="menu-title" style="margin-top: 28px;">个人信息</div>
+                <a href="/student/profile" class="menu-item">
+                    <span class="menu-icon">👤</span>
+                    <span>信息确认</span>
+                </a>
+            </nav>
+
+            <!-- 底部用户信息 -->
+            <div class="side-user">
+                <div class="avatar">{{ user.name[0] if user else '考' }}</div>
+                <div>
+                    <strong>{{ user.name if user else '考生' }}</strong>
+                    <small>考生</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- 右侧主内容 -->
+        <!-- ============================================================ -->
+        <main class="main">
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>练习记录</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.name if user else '考生' }} 同学</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <div class="content">
+
+                <!-- ==================== 页面标题 ==================== -->
+                <div class="page-title">
+                    <div>
+                        <h2>📊 练习记录</h2>
+                        <p style="margin:0;color:var(--muted);font-size:13px;">记录每次练习的提交时间和最终得分</p>
+                    </div>
+                </div>
+
+                <!-- ==================== 练习记录列表 ==================== -->
+                <div class="card">
+                    <div class="card-head">
+                        <h3>练习记录</h3>
+                        <span class="record-count">共 <strong id="recordCount">0</strong> 条记录</span>
+                    </div>
+                    <div class="card-body" style="padding:0;">
+                        <div class="table-wrap">
+                            <table class="table-noline" style="width:100%;" id="recordTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width:25%;">练习名称</th>
+                                        <th style="width:20%;">时间</th>
+                                        <th style="width:15%;">练习次数</th>
+                                        <th style="width:20%;">得分</th>
+                                        <th style="width:20%;">错题数</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recordTableBody">
+                                    <!-- 由 JS 动态渲染 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================================
+        // 页面加载
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecords();
+        });
+
+        // ============================================================
+        // 加载练习记录
+        // ============================================================
+        function loadRecords() {
+            fetch('/api/student/practice-records')
+                .then(function(res) { return res.json(); })
+                .then(function(result) {
+                    var tbody = document.getElementById('recordTableBody');
+                    var countEl = document.getElementById('recordCount');
+
+                    if (result.code === 0 && result.data && result.data.length > 0) {
+                        var html = '';
+                        result.data.forEach(function(record) {
+                            // 根据分数设置颜色
+                            var scoreClass = '';
+                            if (record.score >= 80) scoreClass = 'score-high';
+                            else if (record.score >= 60) scoreClass = 'score-medium';
+                            else scoreClass = 'score-low';
+
+                            html += '<tr>';
+                            html += '<td><strong>' + record.name + '</strong></td>';
+                            html += '<td>' + record.time + '</td>';
+                            html += '<td>' + record.count + '次</td>';
+                            html += '<td><span class="' + scoreClass + '">' + record.score + '分</span></td>';
+                            html += '<td>' + record.wrong + '道</td>';
+                            html += '</tr>';
+                        });
+                        tbody.innerHTML = html;
+                        countEl.textContent = result.data.length;
+                    } else {
+                        // 空状态
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="5">
+                                    <div class="empty-state">
+                                        <span class="icon">📭</span>
+                                        暂无练习记录。<br>完成一次练习后将在此显示。
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                        countEl.textContent = '0';
+                    }
+                })
+                .catch(function() {
+                    document.getElementById('recordTableBody').innerHTML =
+                        '<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:30px 0;">加载失败，请刷新重试</td></tr>';
+                });
+        }
+
+        // ============================================================
+        // Toast提示
+        // ============================================================
+        function showToast(msg) {
+            var toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(function() {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+
+</body>
+</html>

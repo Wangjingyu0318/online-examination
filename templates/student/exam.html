@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的考试 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .table-noline th,
+        .table-noline td {
+            border-left: none;
+            border-right: none;
+        }
+        .table-noline {
+            border-collapse: collapse;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-badge.ongoing {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .status-badge.ended {
+            background: #f5f5f5;
+            color: #757575;
+        }
+        .status-badge.locked {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status-badge.unlocked {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .exam-count {
+            font-size: 13px;
+            color: var(--success);
+            font-weight: 600;
+        }
+        .btn-enter {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 5px 18px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-enter:hover {
+            background: var(--primary-2);
+        }
+        .btn-enter:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ============================================================ -->
+        <!-- 左侧边栏 -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>在线考试与练习</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">考生服务</div>
+                <a href="/student/dashboard" class="menu-item">
+                    <span class="menu-icon">🏠</span>
+                    <span>首页</span>
+                </a>
+                <a href="/student/exam" class="menu-item active">
+                    <span class="menu-icon">📋</span>
+                    <span>我的考试</span>
+                </a>
+                <a href="/student/practice" class="menu-item">
+                    <span class="menu-icon">✏️</span>
+                    <span>在线练习</span>
+                </a>
+                <a href="/student/records" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>练习记录</span>
+                </a>
+
+                <div class="menu-title" style="margin-top: 28px;">个人信息</div>
+                <a href="/student/profile" class="menu-item">
+                    <span class="menu-icon">👤</span>
+                    <span>信息确认</span>
+                </a>
+            </nav>
+
+            <!-- 底部用户信息 -->
+            <div class="side-user">
+                <div class="avatar">{{ user.name[0] if user else '考' }}</div>
+                <div>
+                    <strong>{{ user.name if user else '考生' }}</strong>
+                    <small>考生</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- 右侧主内容 -->
+        <!-- ============================================================ -->
+        <main class="main">
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>我的考试</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.name if user else '考生' }} 同学</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <div class="content">
+
+                <!-- ==================== 页面标题 ==================== -->
+                <div class="page-title">
+                    <div>
+                        <h2>📋 我的考试</h2>
+                        <p style="margin:0;color:var(--muted);font-size:13px;">查看已分配的正式考试任务</p>
+                    </div>
+                </div>
+
+                <!-- ==================== 考试列表 ==================== -->
+                <div class="card">
+                    <div class="card-head">
+                        <h3>考试列表</h3>
+                        <span class="exam-count" id="examCount">1场考试可参加</span>
+                    </div>
+                    <div class="card-body" style="padding:0;">
+                        <div class="table-wrap">
+                            <table class="table-noline" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:20%;">考试名称</th>
+                                        <th style="width:15%;">开放时间</th>
+                                        <th style="width:10%;">时长</th>
+                                        <th style="width:12%;">考试状态</th>
+                                        <th style="width:10%;">提交次数</th>
+                                        <th style="width:12%;">成绩状态</th>
+                                        <th style="width:15%;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="examTableBody">
+                                    <!-- 由 JS 动态渲染 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================================
+        // 页面加载
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            loadExams();
+        });
+
+        // ============================================================
+        // 加载考试列表
+        // ============================================================
+        function loadExams() {
+            // 模拟数据
+            var mockExams = [
+                {
+                    name: '人工智能专业基础考核',
+                    startDate: '2026-07-20',
+                    duration: '60分钟',
+                    status: '进行中',
+                    submitCount: 1,
+                    scoreStatus: '未锁定',
+                    canEnter: true
+                },
+                {
+                    name: '广电技术安全规范考试',
+                    startDate: '2026-07-01',
+                    duration: '45分钟',
+                    status: '已结束',
+                    submitCount: 2,
+                    scoreStatus: '已锁定',
+                    canEnter: false
+                },
+                {
+                    name: 'AI伦理与法规专项考核',
+                    startDate: '2026-08-01',
+                    duration: '30分钟',
+                    status: '进行中',
+                    submitCount: 0,
+                    scoreStatus: '未锁定',
+                    canEnter: true
+                }
+            ];
+
+            var tbody = document.getElementById('examTableBody');
+            var html = '';
+
+            // 计算可参加的考试数（进行中且可参加）
+            var availableCount = 0;
+            mockExams.forEach(function(exam) {
+                if (exam.status === '进行中' && exam.canEnter) {
+                    availableCount++;
+                }
+            });
+            document.getElementById('examCount').textContent = availableCount + '场考试可参加';
+
+            // 渲染表格
+            mockExams.forEach(function(exam) {
+                var statusClass = exam.status === '进行中' ? 'ongoing' : 'ended';
+                var scoreClass = exam.scoreStatus === '已锁定' ? 'locked' : 'unlocked';
+                var btnDisabled = !exam.canEnter ? 'disabled' : '';
+                var btnText = exam.canEnter ? '参加考试' : '已结束';
+
+                html += '<tr>';
+                html += '<td><strong>' + exam.name + '</strong></td>';
+                html += '<td>' + exam.startDate + '</td>';
+                html += '<td>' + exam.duration + '</td>';
+                html += '<td><span class="status-badge ' + statusClass + '">' + exam.status + '</span></td>';
+                html += '<td>' + exam.submitCount + '次</td>';
+                html += '<td><span class="status-badge ' + scoreClass + '">' + exam.scoreStatus + '</span></td>';
+                html += '<td><button class="btn-enter" ' + btnDisabled + ' onclick="enterExam(\'' + exam.name + '\')">' + btnText + '</button></td>';
+                html += '</tr>';
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // ============================================================
+        // 进入考试
+        // ============================================================
+        function enterExam(examName) {
+            window.location.href = '/student/exam_paper';
+        }
+
+        // ============================================================
+        // Toast提示
+        // ============================================================
+        function showToast(msg) {
+            var toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(function() {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+
+</body>
+</html>

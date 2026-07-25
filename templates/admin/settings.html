@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>规则设置 — AIProbe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .setting-group-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0 0 4px 0;
+        }
+        .setting-group-sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 0 0 16px 0;
+        }
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid #edf0f4;
+        }
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        .setting-item .info {
+            flex: 1;
+            padding-right: 20px;
+        }
+        .setting-item .info .label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            display: block;
+            margin-bottom: 2px;
+        }
+        .setting-item .info .desc {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        .setting-item .control {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        /* 开关样式 */
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle .slider {
+            position: absolute;
+            inset: 0;
+            background: #c9d1da;
+            border-radius: 24px;
+            transition: 0.3s;
+        }
+        .toggle .slider::before {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .toggle input:checked + .slider {
+            background: var(--primary);
+        }
+        .toggle input:checked + .slider::before {
+            transform: translateX(20px);
+        }
+        /* 数字输入框 */
+        .number-input {
+            width: 80px;
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+            outline: none;
+            transition: 0.2s;
+        }
+        .number-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20,86,160,0.1);
+        }
+        .number-input:disabled {
+            background: #f5f7fa;
+            color: var(--muted);
+        }
+        /* 保存按钮 */
+        .save-bar {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .btn-reset {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--line);
+        }
+        .btn-reset:hover {
+            background: #e5e9ef;
+        }
+        .btn-save {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+        .btn-save:hover {
+            background: var(--primary-2);
+        }
+        @media (max-width: 860px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-shell">
+        <!-- ============================================================ -->
+        <!-- 左侧边栏 -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="side-brand">
+                <div class="side-logo">📡</div>
+                <div>
+                    <strong>AIProbe</strong>
+                    <small>管理后台</small>
+                </div>
+            </div>
+
+            <nav class="side-menu">
+                <div class="menu-title">管理中心</div>
+                <a href="/admin/dashboard" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>工作台</span>
+                </a>
+                <a href="/admin/exams" class="menu-item">
+                    <span class="menu-icon">📝</span>
+                    <span>考试管理</span>
+                </a>
+                <a href="/admin/questions" class="menu-item">
+                    <span class="menu-icon">📚</span>
+                    <span>题库管理</span>
+                </a>
+                <a href="/admin/users" class="menu-item">
+                    <span class="menu-icon">👥</span>
+                    <span>人员管理</span>
+                </a>
+                <a href="/admin/scores" class="menu-item">
+                    <span class="menu-icon">📊</span>
+                    <span>成绩管理</span>
+                </a>
+                <a href="/admin/settings" class="menu-item active">
+                    <span class="menu-icon">⚙️</span>
+                    <span>规则设置</span>
+                </a>
+            </nav>
+
+            <!-- 底部管理员信息 -->
+            <div class="side-user">
+                <div class="avatar">{{ user.username[0] if user else '管' }}</div>
+                <div>
+                    <strong>{{ user.username if user else '管理员' }}</strong>
+                    <small>管理员</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- 右侧主内容 -->
+        <!-- ============================================================ -->
+        <main class="main">
+            <header class="topbar">
+                <div class="breadcrumb">
+                    📍 <strong>规则设置</strong>
+                </div>
+                <div class="top-actions">
+                    <span style="font-size:13px;color:var(--muted);">{{ user.username if user else '管理员' }}</span>
+                    <a href="/login" style="font-size:13px;color:var(--danger);">退出</a>
+                </div>
+            </header>
+
+            <div class="content">
+
+                <!-- ==================== 页面标题 ==================== -->
+                <div class="page-title">
+                    <div>
+                        <h2>⚙️ 规则设置</h2>
+                        <p style="margin:0;color:var(--muted);font-size:13px;">配置考试与练习的全局规则</p>
+                    </div>
+                </div>
+
+                <!-- ==================== 左右两栏 ==================== -->
+                <div class="settings-grid">
+
+                    <!-- ========== 左栏：考试规则 ========== -->
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="setting-group-title">📋 考试规则</h3>
+                            <p class="setting-group-sub">控制考试流程、题目与试卷行为</p>
+
+                            <!-- 固定考试题目 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">固定考试题目</span>
+                                    <span class="desc">每场考试先确定一套正式试卷，所有考生题目相同。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 随机题目顺序 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">随机题目顺序</span>
+                                    <span class="desc">每名考生题目排序随机，不改变题目范围和总分。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 随机选项顺序 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">随机选项顺序</span>
+                                    <span class="desc">可选设置；开启后必须同步调整正确答案映射。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 断网续考 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">断网续考</span>
+                                    <span class="desc">允许恢复原试卷和剩余时间，不重新抽取题目。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 补考 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">补考</span>
+                                    <span class="desc">不建立单独补考机制。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========== 右栏：评分与成绩规则 ========== -->
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="setting-group-title">📊 评分与成绩规则</h3>
+                            <p class="setting-group-sub">控制计分方式、成绩显示与提交行为</p>
+
+                            <!-- 多选题部分得分 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">多选题部分得分</span>
+                                    <span class="desc">少选按正确选项比例得分；存在错选或多选时本题0分。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 正式考试成绩隐藏 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">正式考试成绩隐藏</span>
+                                    <span class="desc">考生提交后只显示提交成功，不显示分数和答案。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 成绩锁定前允许重考 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">成绩锁定前允许重考</span>
+                                    <span class="desc">以最后一次有效提交为准；锁定后不能再次考试。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 练习提交后显示分数 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">练习提交后显示分数</span>
+                                    <span class="desc">整套练习提交后统一打分，不在答题过程中显示。</span>
+                                </div>
+                                <div class="control">
+                                    <label class="toggle">
+                                        <input type="checkbox" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 单场最大同时在线人数 -->
+                            <div class="setting-item">
+                                <div class="info">
+                                    <span class="label">单场最大同时在线人数</span>
+                                    <span class="desc">限制同一场考试的并发考生数量。</span>
+                                </div>
+                                <div class="control">
+                                    <input type="number" class="number-input" value="100" min="1" max="9999">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ==================== 保存按钮 ==================== -->
+                <div class="save-bar">
+                    <button class="btn btn-reset" onclick="resetSettings()">↩️ 重置</button>
+                    <button class="btn btn-save" onclick="saveSettings()">💾 保存设置</button>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================================
+        // 保存设置
+        // ============================================================
+        function saveSettings() {
+            // 收集所有开关状态
+            var toggles = document.querySelectorAll('.toggle input[type="checkbox"]');
+            var settings = {};
+            toggles.forEach(function(toggle, index) {
+                var label = toggle.closest('.setting-item').querySelector('.label');
+                if (label) {
+                    settings['rule_' + index] = {
+                        name: label.textContent.trim(),
+                        enabled: toggle.checked
+                    };
+                }
+            });
+
+            // 收集在线人数
+            var maxUsers = document.querySelector('.number-input');
+            if (maxUsers) {
+                settings['max_concurrent_users'] = parseInt(maxUsers.value) || 100;
+            }
+
+            console.log('📤 保存设置:', settings);
+            showToast('✅ 设置已保存（当前为演示，实际未对接后端）');
+        }
+
+        // ============================================================
+        // 重置设置
+        // ============================================================
+        function resetSettings() {
+            if (!confirm('确认重置所有设置为默认值吗？')) return;
+
+            // 重置所有开关
+            var toggles = document.querySelectorAll('.toggle input[type="checkbox"]');
+            toggles.forEach(function(toggle) {
+                // 默认值：固定考试题目、随机题目顺序、断网续考、多选题部分得分、
+                // 正式考试成绩隐藏、成绩锁定前允许重考、练习提交后显示分数 为开启
+                // 随机选项顺序、补考 为关闭
+                var label = toggle.closest('.setting-item').querySelector('.label');
+                if (label) {
+                    var name = label.textContent.trim();
+                    var defaultOn = [
+                        '固定考试题目',
+                        '随机题目顺序',
+                        '断网续考',
+                        '多选题部分得分',
+                        '正式考试成绩隐藏',
+                        '成绩锁定前允许重考',
+                        '练习提交后显示分数'
+                    ];
+                    toggle.checked = defaultOn.includes(name);
+                }
+            });
+
+            // 重置在线人数
+            var maxUsers = document.querySelector('.number-input');
+            if (maxUsers) {
+                maxUsers.value = 100;
+            }
+
+            showToast('↩️ 已重置为默认设置');
+        }
+
+        // ============================================================
+        // Toast提示
+        // ============================================================
+        function showToast(msg) {
+            var toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(function() {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+
+</body>
+</html>
